@@ -81,6 +81,11 @@ class SchedSim {
 		
 		// initialize data structures
 
+		// TODO: Event Heap
+		// TODO: Process Table
+		// TODO: I/O Queue
+		// TODO: Ready Queue
+
 		/* DES loop */
 		// see psudeocode in the assignment
 		// all of your input reading occurs when processing the Arrival event
