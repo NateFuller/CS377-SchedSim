@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.lang.NumberFormatException;
 
 class SchedSim {
 
@@ -14,38 +15,67 @@ class SchedSim {
 	public static Algorithm algorithm;
 
 	public static void main(String [] args) throws FileNotFoundException{
-		// parse arguments
+		
+		//---------------------------------------------------------------------//
+		//----------------------------PARSE INPUT------------------------------//
+		//---------------------------------------------------------------------//
 		if (args.length < 4 || args.length > 5) {
-			System.err.println("Invalid Input!");
+			System.err.println("ERROR: Invalid Input!");
 			printUsageAndExit();
 		}
 
 		File f = new File(args[0]);
 		if (!f.exists() || f.isDirectory()) {
-			System.out.println();
-			throw new FileNotFoundException("Could not find file named: \"" + args[0] + "\"");
+			System.err.println();
+			throw new FileNotFoundException("ERROR: Could not find file named: \"" + args[0] + "\"");
+		}
+
+		try {
+			maxProcesses = Integer.parseInt(args[1].toLowerCase());
+			maxCPUbursts = Integer.parseInt(args[2].toLowerCase());
+		} catch (NumberFormatException e) {
+			System.err.println("ERROR: Please enter non-negative, nonzero integer values for maxProcesses and maxCPUbursts.");
+			printUsageAndExit();
+		}
+
+		if (maxProcesses <= 0) {
+			System.err.println("ERROR: Please enter a non-negative, nonzero integer value for maxProcesses.");
+			printUsageAndExit();
+		}
+
+		if (maxCPUbursts <= 0) {
+			System.err.println("ERROR: Please enter a non-negative, nonzero value integer for maxCPUbursts.");
+			printUsageAndExit();
 		}
 
 		String a = args[3].toLowerCase();
 
 		switch (a) {
 			case "fcfs":
+			case "0":
 				algorithm = Algorithm.FCFS;
 				break;
 			case "sjf":
+			case "1":
 				algorithm = Algorithm.SJF;
 				break;
 			case "srtf":
+			case "2":
 				algorithm = Algorithm.SRTF;
 				break;
 			case "rr":
+			case "3":
 				algorithm = Algorithm.RR;
 				break;
 			default:
-				System.out.println("Invalid Algorithm Input!");
-				System.out.println("Please enter one of the following: FCFS, SJF, SRTF, RR");
+				System.out.println("ERROR: Invalid Algorithm Input!");
+				System.out.println("Please enter one of the following: 0 for FCFS; 1 for SJF; 2 for SRTF; or 3 for RR");
 				break;
 		}
+
+		// give some feedback to the user
+		System.out.println("Executing the \"" + algorithm.name() + "\" algorithm with at most " + maxProcesses
+			+ " processes and at most " + maxCPUbursts + " CPU bursts per process.");
 
 		// you might want to open the binary input file here
 		
