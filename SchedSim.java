@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.lang.NumberFormatException;
 
 class SchedSim {
@@ -78,6 +79,7 @@ class SchedSim {
 			+ " processes and at most " + maxCPUbursts + " CPU bursts per process.");
 
 		// you might want to open the binary input file here
+		FileReader fr = new FileReader(f);
 		
 		// initialize data structures
 
