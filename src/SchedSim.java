@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.IOException;
 import java.lang.NumberFormatException;
 
 class SchedSim {
@@ -78,19 +79,26 @@ class SchedSim {
 		System.out.println("Executing the \"" + algorithm.name() + "\" algorithm with at most " + maxProcesses
 			+ " processes and at most " + maxCPUbursts + " CPU bursts per process.");
 
+
 		// you might want to open the binary input file here
 		FileReader fr = new FileReader(f);
-		
-		// initialize data structures
 
-		// TODO: Event Heap
-		// TODO: Process Table
-		// TODO: I/O Queue
-		// TODO: Ready Queue
+		// initialize data structures
+		Queue<Event> eventHeap = new Queue<Event>();
+		Process[] processes = new Process[maxProcesses];
+		Queue<Event> ioQueue = new Queue<Event>();
+		Queue<Event> readyQueue = new Queue<Event>();
 
 		/* DES loop */
 		// see psudeocode in the assignment
 		// all of your input reading occurs when processing the Arrival event
+		while(!eventHeap.isEmpty()) {
+			Event event = eventHeap.dequeue();
+			time = event.time;
+			switch(event.type) {
+				
+			}
+		}
 
 		// output statistics
 	}
