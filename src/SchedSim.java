@@ -1,8 +1,11 @@
 import java.io.File;
+import java.io.InputStream;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.lang.NumberFormatException;
+import java.util.PriorityQueue;
+import java.util.Queue;
 
 class SchedSim {
 
@@ -81,24 +84,38 @@ class SchedSim {
 
 
 		// you might want to open the binary input file here
-		FileReader fr = new FileReader(f);
+		InputStream fr = new FileInputStream(f);
+
+		try {
+			int nextProcessTime = ((int)(fr.read() / 10.0)) & 0xff ;
+			int numCPUBursts = ((int)(fr.read() % maxCPUbursts + 1)) & 0xff;
+			double cbt = 0;
+			double ibt = 0;
+			for (int i = 0; i < numCPUBursts; i++) {
+				cbt += fr.read() / 25.6;
+			}
+			int cpuBurstTime = (int)cbt & 0xff;
+			for (int i = 0; i < numCPUBursts - 1; i++) {
+				ibt += fr.read() / 25.6;
+			}
+			int ioBurstTime = (int)ibt & 0xff;
+
+			System.out.println(nextProcessTime + " " + numCPUBursts + " " + cpuBurstTime + " " + ioBurstTime);
+
+		} catch (IOException e) {
+			System.err.println(e.getLocalizedMessage());
+			System.exit(1);
+		}
 
 		// initialize data structures
-		Queue<Event> eventHeap = new Queue<Event>();
+		Queue<Event> eventHeap = new PriorityQueue<Event>();
 		Process[] processes = new Process[maxProcesses];
-		Queue<Event> ioQueue = new Queue<Event>();
-		Queue<Event> readyQueue = new Queue<Event>();
+		Queue<Event> ioQueue = new PriorityQueue<Event>();
+		Queue<Event> readyQueue = new PriorityQueue<Event>();
 
 		/* DES loop */
 		// see psudeocode in the assignment
 		// all of your input reading occurs when processing the Arrival event
-		while(!eventHeap.isEmpty()) {
-			Event event = eventHeap.dequeue();
-			time = event.time;
-			switch(event.type) {
-				
-			}
-		}
 
 		// output statistics
 	}
