@@ -4,6 +4,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.NumberFormatException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
@@ -16,8 +18,7 @@ class SchedSim {
     public static double nextProcessTime; // time of the next process; used to schedule the next arrival event and should not be saved in the current process object
 
     public static Queue<Event> eventHeap;
-    public static Process[] processTable;
-    public static int currentProcess = 0;
+    public static List<Process> processTable;
     public static Queue<Process> ioQueue;
     public static Queue<Process> readyQueue;
     public static InputStream inputStream; // stream used to read in process info
@@ -56,13 +57,14 @@ class SchedSim {
 
         // initialize data structures
         eventHeap = new PriorityQueue<>();
-        processTable = new Process[maxProcesses];
+        processTable = new ArrayList<>();
         ioQueue = new PriorityQueue<>();
         readyQueue = new PriorityQueue<>();
 
         Device ioDevice = new Device();
         Device CPU = new Device();
 
+        // add initial event so we can get into the while loop below
         eventHeap.add(new Event(Event.Type.ARRIVAL, 0));
 
         //---------------------------------------------------------------------//
@@ -75,7 +77,7 @@ class SchedSim {
             switch(currentEvent.type) {
                 case ARRIVAL:
                     Process p = getProcessFromInput();
-                    processTable[currentProcess++] = p;
+                    processTable.add(p);
 
                     if (CPU.currentProcess == null) {
                         // place the process on CPU and set its state to running
@@ -84,8 +86,15 @@ class SchedSim {
 
                         // create a new CPU Burst Completion event and add to eventheap
                         // time = the time after 1st cpu burst of the process
-                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[0]));
+                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[0], p));
+                    } else { // CPU busy
+                        p.state = Process.State.READY;
+                        readyQueue.add(p);
                     }
+                    break;
+                case CPU_DONE:
+                    Process p = currentEvent.process;
+                    
 
             }
         }

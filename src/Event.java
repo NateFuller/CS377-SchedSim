@@ -7,10 +7,12 @@ class Event {
 
 	public final Type type; // constant type of event, might want to make this final
 	public double time; // when this event will occur
+	public Process process; // the process affiliated with this event, helps in SchedSim.java
 
-	public Event(Type type, double time) {
+	public Event(Type type, double time, Process process) {
 		this.type = type;
 		this.time = time;
+		this.process = process;
 	}
 
 }
