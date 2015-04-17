@@ -29,64 +29,19 @@ class SchedSim {
             printUsageAndExit();
         }
 
-        File f = new File(args[0]);
-        if (!f.exists() || f.isDirectory()) {
-            System.err.println();
-            throw new FileNotFoundException("ERROR: Could not find file named: \"" + args[0] + "\"");
-        }
-
-        try {
-            maxProcesses = Integer.parseInt(args[1].toLowerCase());
-            maxCPUbursts = Integer.parseInt(args[2].toLowerCase());
-        } catch (NumberFormatException e) {
-            System.err.println("ERROR: Please enter non-negative, nonzero integer values for maxProcesses and maxCPUbursts.");
-            printUsageAndExit();
-        }
-
-        if (maxProcesses <= 0) {
-            System.err.println("ERROR: Please enter a non-negative, nonzero integer value for maxProcesses.");
-            printUsageAndExit();
-        }
-
-        if (maxCPUbursts <= 0) {
-            System.err.println("ERROR: Please enter a non-negative, nonzero value integer for maxCPUbursts.");
-            printUsageAndExit();
-        }
+        File f = checkInputAndGetFile(args);
 
         String a = args[3].toLowerCase();
+        algorithm = determineAlgorithm(a);
 
-        switch (a) {
-            case "fcfs":
-            case "0":
-                algorithm = Algorithm.FCFS;
-                break;
-            case "sjf":
-            case "1":
-                algorithm = Algorithm.SJF;
-                break;
-            case "srtf":
-            case "2":
-                algorithm = Algorithm.SRTF;
-                break;
-            case "rr":
-            case "3":
-                algorithm = Algorithm.RR;
-                break;
-            default:
-                System.out.println("ERROR: Invalid Algorithm Input!");
-                System.out.println("Please enter one of the following: 0 for FCFS; 1 for SJF; 2 for SRTF; or 3 for RR");
-                break;
-        }
 
         // give some feedback to the user
         System.out.println("Executing the \"" + algorithm.name() + "\" algorithm with at most " + maxProcesses
                 + " processes and at most " + maxCPUbursts + " CPU bursts per process.");
 
-
         //---------------------------------------------------------------------//
         //---------------------------------SETUP-------------------------------//
         //---------------------------------------------------------------------//
-
         // you might want to open the binary input file here
         InputStream fr = new FileInputStream(f);
 
@@ -96,14 +51,11 @@ class SchedSim {
         Queue<Event> ioQueue = new PriorityQueue<>();
         Queue<Event> readyQueue = new PriorityQueue<>();
 
-
-        Event initialArrival = new Event(Event.Type.ARRIVAL, 0);
-        eventHeap.add(initialArrival);
+        eventHeap.add(new Event(Event.Type.ARRIVAL, 0));
 
         //---------------------------------------------------------------------//
         //--------------------------GET EVENT INFORMATION----------------------//
         //---------------------------------------------------------------------//
-
         try {
             int nextProcessTime = ((int) (fr.read() / 10.0)) & 0xff;
             int numCPUBursts = (fr.read() % maxCPUbursts + 1) & 0xff;
@@ -133,6 +85,66 @@ class SchedSim {
 
 
         // output statistics
+    }
+
+    /**
+     *
+     * @param arg the argument to parse
+     * @return Algorithm that the arg matches or exit if invalid
+     */
+    private static Algorithm determineAlgorithm(String arg) {
+        switch (arg) {
+            case "fcfs":
+            case "0":
+                return Algorithm.FCFS;
+            case "sjf":
+            case "1":
+                return Algorithm.SJF;
+            case "srtf":
+            case "2":
+                return Algorithm.SRTF;
+            case "rr":
+            case "3":
+                return Algorithm.RR;
+            default:
+                System.out.println("ERROR: Invalid Algorithm Input!");
+                System.out.println("Please enter one of the following: 0 for FCFS; 1 for SJF; 2 for SRTF; or 3 for RR");
+                printUsageAndExit();
+        }
+        return null;
+    }
+
+    /**
+     *
+     * @param args command line arguments
+     * @return File the file to be read from if all the input is sufficient and valid
+     * @throws FileNotFoundException if the file does not exist or is a directory
+     */
+    private static File checkInputAndGetFile(String[] args) throws FileNotFoundException {
+        File f = new File(args[0]);
+        if (!f.exists() || f.isDirectory()) {
+            System.err.println();
+            throw new FileNotFoundException("ERROR: Could not find file named: \"" + args[0] + "\"");
+        }
+
+        try {
+            maxProcesses = Integer.parseInt(args[1].toLowerCase());
+            maxCPUbursts = Integer.parseInt(args[2].toLowerCase());
+        } catch (NumberFormatException e) {
+            System.err.println("ERROR: Please enter non-negative, nonzero integer values for maxProcesses and maxCPUbursts.");
+            printUsageAndExit();
+        }
+
+        if (maxProcesses <= 0) {
+            System.err.println("ERROR: Please enter a non-negative, nonzero integer value for maxProcesses.");
+            printUsageAndExit();
+        }
+
+        if (maxCPUbursts <= 0) {
+            System.err.println("ERROR: Please enter a non-negative, nonzero value integer for maxCPUbursts.");
+            printUsageAndExit();
+        }
+        return f;
     }
 
     private static void printUsageAndExit() {
