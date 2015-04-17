@@ -13,6 +13,15 @@ class SchedSim {
     public static int maxCPUbursts; // cap on total CPU bursts per process
     public static double time = 0; // current time in simulation, starting at zero
 
+    public static double nextProcessTime; // time of the next process; used to schedule the next arrival event and should not be saved in the current process object
+
+    public static Queue<Event> eventHeap;
+    public static Process[] processTable;
+    public static int currentProcess = 0;
+    public static Queue<Process> ioQueue;
+    public static Queue<Process> readyQueue;
+    public static InputStream inputStream; // stream used to read in process info
+
     public enum Algorithm { // algorithm to use for entire run of simulation
         FCFS, SJF, SRTF, RR
     }
@@ -43,48 +52,80 @@ class SchedSim {
         //---------------------------------SETUP-------------------------------//
         //---------------------------------------------------------------------//
         // you might want to open the binary input file here
-        InputStream fr = new FileInputStream(f);
+        inputStream = new FileInputStream(f);
 
         // initialize data structures
-        Queue<Event> eventHeap = new PriorityQueue<>();
-        Process[] processes = new Process[maxProcesses];
-        Queue<Process> ioQueue = new PriorityQueue<>();
-        Queue<Process> readyQueue = new PriorityQueue<>();
+        eventHeap = new PriorityQueue<>();
+        processTable = new Process[maxProcesses];
+        ioQueue = new PriorityQueue<>();
+        readyQueue = new PriorityQueue<>();
+
+        Device ioDevice = new Device();
+        Device CPU = new Device();
 
         eventHeap.add(new Event(Event.Type.ARRIVAL, 0));
 
         //---------------------------------------------------------------------//
-        //--------------------------GET EVENT INFORMATION----------------------//
+        //-------------------------------DES LOOP!-----------------------------//
         //---------------------------------------------------------------------//
-        try {
-            int nextProcessTime = ((int) (fr.read() / 10.0)) & 0xff;
-            int numCPUBursts = (fr.read() % maxCPUbursts + 1) & 0xff;
-            double cbt = 0;
-            double ibt = 0;
-            for (int i = 0; i < numCPUBursts; i++) {
-                cbt += fr.read() / 25.6;
+        while(!eventHeap.isEmpty()) {
+            Event currentEvent = eventHeap.poll();
+            time = currentEvent.time;
+
+            switch(currentEvent.type) {
+                case ARRIVAL:
+                    Process p = getProcessFromInput();
+                    processTable[currentProcess++] = p;
+
+                    if (CPU.currentProcess == null) {
+                        // place the process on CPU and set its state to running
+                        CPU.currentProcess = p;
+                        p.state = Process.State.RUNNING;
+
+                        // create a new CPU Burst Completion event and add to eventheap
+                        // time = the time after 1st cpu burst of the process
+                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[0]));
+                    }
+
             }
-            int cpuBurstTime = (int) cbt & 0xff;
-            for (int i = 0; i < numCPUBursts - 1; i++) {
-                ibt += fr.read() / 25.6;
-            }
-            int ioBurstTime = (int) ibt & 0xff;
-
-            System.out.println(nextProcessTime + " " + numCPUBursts + " " + cpuBurstTime + " " + ioBurstTime);
-
-
-
-		    /* DES loop */
-            // see pseudocode in the assignment
-            // all of your input reading occurs when processing the Arrival event
-
-        } catch (IOException e) {
-            System.err.println(e.getLocalizedMessage());
-            System.exit(1);
         }
+
+        /* DES loop */
+        // see pseudocode in the assignment
+        // all of your input reading occurs when processing the Arrival event
 
 
         // output statistics
+
+    }
+
+    private static Process getProcessFromInput() {
+
+        double nextProcessTime = readByte() / 10.0;
+        int numCPUbursts = readByte() % maxCPUbursts + 1;
+
+        Process p = new Process(numCPUbursts);
+
+        for (int i = 0; i < numCPUbursts; i++) {
+            p.cpuBurstSizes[i] = readByte() / 25.6;
+        }
+        for (int i = 0; i < numCPUbursts - 1; i++) {
+            p.ioBurstSizes[i] = readByte() / 25.6;
+        }
+
+        System.out.println(nextProcessTime + " " + numCPUbursts);
+        return p;
+    }
+
+    private static int readByte() {
+        int retVal = -1;
+        try {
+            retVal = inputStream.read() & 0xff;
+        } catch(IOException e) { // probably should terminate if something goes wrong with I/O
+            System.err.print(e.getLocalizedMessage());
+            System.exit(1);
+        }
+        return retVal;
     }
 
     /**

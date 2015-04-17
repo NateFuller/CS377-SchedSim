@@ -10,15 +10,16 @@ class Process {
 	State state = State.NEW; // current state in the state machine from figure 3.2
 
 	/* Put data structures to hold size of CPU and I/O bursts here */
-	public List<Integer> cpuBurstSizes;
-	public List<Integer> ioBurstSizes;
+	public double[] cpuBurstSizes;
+	public double[] ioBurstSizes;
 
-	public Process(){
-		cpuBurstSizes = new ArrayList<Integer>();
-		ioBurstSizes = new ArrayList<Integer>();
-	}
-
+	public int numCPUbursts;
 	int currentBurst; // indicates which of the series of bursts is currently being handled. state can be used to determine what kind of burst
-
 	double completedTime = 0; // used to calculate remaining time till completion if burst is descheduled
+
+	public Process(int numCPUbursts) {
+		this.numCPUbursts = numCPUbursts;
+		cpuBurstSizes = new double[numCPUbursts];
+		ioBurstSizes = new double[numCPUbursts - 1];
+	}
 }
