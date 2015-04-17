@@ -48,8 +48,8 @@ class SchedSim {
         // initialize data structures
         Queue<Event> eventHeap = new PriorityQueue<>();
         Process[] processes = new Process[maxProcesses];
-        Queue<Event> ioQueue = new PriorityQueue<>();
-        Queue<Event> readyQueue = new PriorityQueue<>();
+        Queue<Process> ioQueue = new PriorityQueue<>();
+        Queue<Process> readyQueue = new PriorityQueue<>();
 
         eventHeap.add(new Event(Event.Type.ARRIVAL, 0));
 
