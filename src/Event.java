@@ -1,7 +1,7 @@
 /* these will be used in the Event Heap and all queues */
 class Event {
 
-	public enum Type { // cooresponds to "Events to be Processed" in assignment
+	public enum Type { // corresponds to "Events to be Processed" in assignment
 		ARRIVAL, CPU_DONE, IO_DONE 
 	}
 

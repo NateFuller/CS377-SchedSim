@@ -9,119 +9,134 @@ import java.util.Queue;
 
 class SchedSim {
 
-	public static int maxProcesses; // cap on total processes for simulation
-	public static int maxCPUbursts; // cap on total CPU bursts per process
-	public static double time = 0; // current time in simulation, starting at zero
+    public static int maxProcesses; // cap on total processes for simulation
+    public static int maxCPUbursts; // cap on total CPU bursts per process
+    public static double time = 0; // current time in simulation, starting at zero
 
-	public enum Algorithm { // algorithm to use for entire run of simulation
-		FCFS, SJF, SRTF, RR
-	}	
+    public enum Algorithm { // algorithm to use for entire run of simulation
+        FCFS, SJF, SRTF, RR
+    }
 
-	public static Algorithm algorithm;
+    public static Algorithm algorithm;
 
-	public static void main(String [] args) throws FileNotFoundException{
-		
-		//---------------------------------------------------------------------//
-		//----------------------------PARSE INPUT------------------------------//
-		//---------------------------------------------------------------------//
-		if (args.length < 4 || args.length > 5) {
-			System.err.println("ERROR: Invalid Input!");
-			printUsageAndExit();
-		}
+    public static void main(String[] args) throws FileNotFoundException {
 
-		File f = new File(args[0]);
-		if (!f.exists() || f.isDirectory()) {
-			System.err.println();
-			throw new FileNotFoundException("ERROR: Could not find file named: \"" + args[0] + "\"");
-		}
+        //---------------------------------------------------------------------//
+        //----------------------------PARSE INPUT------------------------------//
+        //---------------------------------------------------------------------//
+        if (args.length < 4 || args.length > 5) {
+            System.err.println("ERROR: Invalid Input!");
+            printUsageAndExit();
+        }
 
-		try {
-			maxProcesses = Integer.parseInt(args[1].toLowerCase());
-			maxCPUbursts = Integer.parseInt(args[2].toLowerCase());
-		} catch (NumberFormatException e) {
-			System.err.println("ERROR: Please enter non-negative, nonzero integer values for maxProcesses and maxCPUbursts.");
-			printUsageAndExit();
-		}
+        File f = new File(args[0]);
+        if (!f.exists() || f.isDirectory()) {
+            System.err.println();
+            throw new FileNotFoundException("ERROR: Could not find file named: \"" + args[0] + "\"");
+        }
 
-		if (maxProcesses <= 0) {
-			System.err.println("ERROR: Please enter a non-negative, nonzero integer value for maxProcesses.");
-			printUsageAndExit();
-		}
+        try {
+            maxProcesses = Integer.parseInt(args[1].toLowerCase());
+            maxCPUbursts = Integer.parseInt(args[2].toLowerCase());
+        } catch (NumberFormatException e) {
+            System.err.println("ERROR: Please enter non-negative, nonzero integer values for maxProcesses and maxCPUbursts.");
+            printUsageAndExit();
+        }
 
-		if (maxCPUbursts <= 0) {
-			System.err.println("ERROR: Please enter a non-negative, nonzero value integer for maxCPUbursts.");
-			printUsageAndExit();
-		}
+        if (maxProcesses <= 0) {
+            System.err.println("ERROR: Please enter a non-negative, nonzero integer value for maxProcesses.");
+            printUsageAndExit();
+        }
 
-		String a = args[3].toLowerCase();
+        if (maxCPUbursts <= 0) {
+            System.err.println("ERROR: Please enter a non-negative, nonzero value integer for maxCPUbursts.");
+            printUsageAndExit();
+        }
 
-		switch (a) {
-			case "fcfs":
-			case "0":
-				algorithm = Algorithm.FCFS;
-				break;
-			case "sjf":
-			case "1":
-				algorithm = Algorithm.SJF;
-				break;
-			case "srtf":
-			case "2":
-				algorithm = Algorithm.SRTF;
-				break;
-			case "rr":
-			case "3":
-				algorithm = Algorithm.RR;
-				break;
-			default:
-				System.out.println("ERROR: Invalid Algorithm Input!");
-				System.out.println("Please enter one of the following: 0 for FCFS; 1 for SJF; 2 for SRTF; or 3 for RR");
-				break;
-		}
+        String a = args[3].toLowerCase();
 
-		// give some feedback to the user
-		System.out.println("Executing the \"" + algorithm.name() + "\" algorithm with at most " + maxProcesses
-			+ " processes and at most " + maxCPUbursts + " CPU bursts per process.");
+        switch (a) {
+            case "fcfs":
+            case "0":
+                algorithm = Algorithm.FCFS;
+                break;
+            case "sjf":
+            case "1":
+                algorithm = Algorithm.SJF;
+                break;
+            case "srtf":
+            case "2":
+                algorithm = Algorithm.SRTF;
+                break;
+            case "rr":
+            case "3":
+                algorithm = Algorithm.RR;
+                break;
+            default:
+                System.out.println("ERROR: Invalid Algorithm Input!");
+                System.out.println("Please enter one of the following: 0 for FCFS; 1 for SJF; 2 for SRTF; or 3 for RR");
+                break;
+        }
+
+        // give some feedback to the user
+        System.out.println("Executing the \"" + algorithm.name() + "\" algorithm with at most " + maxProcesses
+                + " processes and at most " + maxCPUbursts + " CPU bursts per process.");
 
 
-		// you might want to open the binary input file here
-		InputStream fr = new FileInputStream(f);
+        //---------------------------------------------------------------------//
+        //---------------------------------SETUP-------------------------------//
+        //---------------------------------------------------------------------//
 
-		try {
-			int nextProcessTime = ((int)(fr.read() / 10.0)) & 0xff ;
-			int numCPUBursts = ((int)(fr.read() % maxCPUbursts + 1)) & 0xff;
-			double cbt = 0;
-			double ibt = 0;
-			for (int i = 0; i < numCPUBursts; i++) {
-				cbt += fr.read() / 25.6;
-			}
-			int cpuBurstTime = (int)cbt & 0xff;
-			for (int i = 0; i < numCPUBursts - 1; i++) {
-				ibt += fr.read() / 25.6;
-			}
-			int ioBurstTime = (int)ibt & 0xff;
+        // you might want to open the binary input file here
+        InputStream fr = new FileInputStream(f);
 
-			System.out.println(nextProcessTime + " " + numCPUBursts + " " + cpuBurstTime + " " + ioBurstTime);
+        // initialize data structures
+        Queue<Event> eventHeap = new PriorityQueue<>();
+        Process[] processes = new Process[maxProcesses];
+        Queue<Event> ioQueue = new PriorityQueue<>();
+        Queue<Event> readyQueue = new PriorityQueue<>();
 
-		} catch (IOException e) {
-			System.err.println(e.getLocalizedMessage());
-			System.exit(1);
-		}
 
-		// initialize data structures
-		Queue<Event> eventHeap = new PriorityQueue<Event>();
-		Process[] processes = new Process[maxProcesses];
-		Queue<Event> ioQueue = new PriorityQueue<Event>();
-		Queue<Event> readyQueue = new PriorityQueue<Event>();
+        Event initialArrival = new Event(Event.Type.ARRIVAL, 0);
+        eventHeap.add(initialArrival);
 
-		/* DES loop */
-		// see psudeocode in the assignment
-		// all of your input reading occurs when processing the Arrival event
+        //---------------------------------------------------------------------//
+        //--------------------------GET EVENT INFORMATION----------------------//
+        //---------------------------------------------------------------------//
 
-		// output statistics
-	}
+        try {
+            int nextProcessTime = ((int) (fr.read() / 10.0)) & 0xff;
+            int numCPUBursts = (fr.read() % maxCPUbursts + 1) & 0xff;
+            double cbt = 0;
+            double ibt = 0;
+            for (int i = 0; i < numCPUBursts; i++) {
+                cbt += fr.read() / 25.6;
+            }
+            int cpuBurstTime = (int) cbt & 0xff;
+            for (int i = 0; i < numCPUBursts - 1; i++) {
+                ibt += fr.read() / 25.6;
+            }
+            int ioBurstTime = (int) ibt & 0xff;
 
-	private static void printUsageAndExit() {
-		System.err.println("Usage: java SchedSim <filename> <maxProcesses> <maxCPUbursts> <algorithm>");
-		System.exit(1);
-	}
+            System.out.println(nextProcessTime + " " + numCPUBursts + " " + cpuBurstTime + " " + ioBurstTime);
+
+
+
+		    /* DES loop */
+            // see pseudocode in the assignment
+            // all of your input reading occurs when processing the Arrival event
+
+        } catch (IOException e) {
+            System.err.println(e.getLocalizedMessage());
+            System.exit(1);
+        }
+
+
+        // output statistics
+    }
+
+    private static void printUsageAndExit() {
+        System.err.println("Usage: java SchedSim <filename> <maxProcesses> <maxCPUbursts> <algorithm>");
+        System.exit(1);
+    }
 }
