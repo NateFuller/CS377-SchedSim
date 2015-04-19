@@ -60,6 +60,7 @@ class SchedSim {
         processTable = new ArrayList<>();
         ioQueue = new PriorityQueue<>();
         readyQueue = new PriorityQueue<>();
+        populateProcessTable();
 
         Device ioDevice = new Device();
         Device CPU = new Device();
@@ -157,6 +158,12 @@ class SchedSim {
 
         // output statistics
 
+    }
+
+    private static void populateProcessTable(){
+        for (int i = 0; i < maxProcesses; i++) {
+            processTable.add(getProcessFromInput());
+        }
     }
 
     private static Process getProcessFromInput() {
