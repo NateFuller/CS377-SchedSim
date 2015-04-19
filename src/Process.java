@@ -13,9 +13,10 @@ class Process {
 	public double[] cpuBurstSizes;
 	public double[] ioBurstSizes;
 
-	public int numCPUbursts;
-	int currentBurst; // indicates which of the series of bursts is currently being handled. state can be used to determine what kind of burst
-	double completedTime = 0; // used to calculate remaining time till completion if burst is descheduled
+	public int numCPUbursts = 0;
+	public int currentBurst = 0; // indicates which of the series of bursts is currently being handled. state can be used to determine what kind of burst
+	public double completedTime = 0; // used to calculate remaining time till completion if burst is descheduled
+	public double waitTime = 0;
 
 	public Process(int numCPUbursts) {
 		this.numCPUbursts = numCPUbursts;

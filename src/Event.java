@@ -7,12 +7,10 @@ class Event implements Comparable<Event>{
 
 	public final Type type; // constant type of event, might want to make this final
 	public double time; // when this event will occur
-	public Process process; // the process affiliated with this event, helps in SchedSim.java
 
-	public Event(Type type, double time, Process process) {
+	public Event(Type type, double time) {
 		this.type = type;
 		this.time = time;
-		this.process = process;
 	}
 
 

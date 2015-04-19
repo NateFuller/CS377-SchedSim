@@ -5,4 +5,8 @@ public class Device {
 
     public Process currentProcess;
 
+    public boolean isIdle() {
+        return currentProcess == null;
+    }
+
 }

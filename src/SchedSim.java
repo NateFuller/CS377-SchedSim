@@ -4,10 +4,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.NumberFormatException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.util.*;
 
 class SchedSim {
 
@@ -22,6 +19,10 @@ class SchedSim {
     public static Queue<Process> ioQueue;
     public static Queue<Process> readyQueue;
     public static InputStream inputStream; // stream used to read in process info
+    public static Queue<Process> newProcesses;
+
+    public static Device CPU;
+    public static Device ioDevice;
 
     public enum Algorithm { // algorithm to use for entire run of simulation
         FCFS, SJF, SRTF, RR
@@ -59,18 +60,41 @@ class SchedSim {
         eventHeap = new PriorityQueue<>();
         processTable = new ArrayList<>();
         ioQueue = new PriorityQueue<>();
-        readyQueue = new PriorityQueue<>();
-        populateProcessTable();
+        newProcesses = new LinkedList<>();
+        getNewProcesses(); //populates newProcesses
 
-        Device ioDevice = new Device();
-        Device CPU = new Device();
-
-        // add initial event so we can get into the while loop below
-        eventHeap.add(new Event(Event.Type.ARRIVAL, 0, null));
+        ioDevice = new Device();
+        CPU = new Device();
 
         //---------------------------------------------------------------------//
         //-------------------------------DES LOOP!-----------------------------//
         //---------------------------------------------------------------------//
+        switch(algorithm) {
+            case FCFS:
+                readyQueue = new LinkedList<>(); // just using a linked list; no comparator needed
+                double completionTime = FCFS();
+                System.out.println("FCFS finished with completion time: " + completionTime + " seconds.");
+                break;
+            case SJF:
+                break;
+            case SRTF:
+                break;
+            case RR:
+                break;
+            default:
+                System.err.println("ERR: Something went wrong...");
+                System.exit(1);
+        }
+
+
+
+
+        // output statistics
+
+    }
+
+    public static double FCFS() {
+
         while(!eventHeap.isEmpty()) {
             Event currentEvent = eventHeap.poll();
             time = currentEvent.time;
@@ -78,43 +102,48 @@ class SchedSim {
             switch (currentEvent.type) {
                 case ARRIVAL:
                     System.out.println("Processing ARRIVAL");
-                    Process p = getProcessFromInput();
-                    processTable.add(p);
-                    currentEvent.process = p;
+                    if (newProcesses.isEmpty()) {
+                        //debugEventHeap();
+                        System.out.println("SHITS GON BREAK NUCKA");
+                    }
+                    Process arrivalProcess = newProcesses.remove();
+                    processTable.add(arrivalProcess);
 
                     // no process on CPU means the CPU is idle
-                    if (CPU.currentProcess == null) {
+                    if (CPU.isIdle()) {
                         // place the process on CPU and set its state to running
-                        CPU.currentProcess = p;
-                        p.state = Process.State.RUNNING;
+                        CPU.currentProcess = arrivalProcess;
+                        arrivalProcess.state = Process.State.RUNNING;
 
                         // create a new CPU Burst Completion event and add to eventheap
-                        // time = the time after 1st cpu burst of the process
-                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[0], p));
+                        eventHeap.add(new Event(Event.Type.CPU_DONE,
+                                time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
                     } else { // CPU busy
-                        p.state = Process.State.READY;
-                        readyQueue.add(p);
+                        arrivalProcess.state = Process.State.READY;
+                        readyQueue.add(arrivalProcess);
                     }
-
-                    // read in the time of the next process arrival, and add a new Arrival event to the event queue
-                    eventHeap.add(new Event(Event.Type.ARRIVAL, nextProcessTime, null));
 
                     break;
                 case CPU_DONE:
                     System.out.println("Processing CPU_DONE");
-                    p = currentEvent.process;
 
-                    if (p.currentBurst == p.cpuBurstSizes.length - 1) {
-                        p.state = Process.State.TERMINATED;
-                    } else if (ioDevice.currentProcess == null) {
-                        ioDevice.currentProcess = p;
-                        p.state = Process.State.IO;
+                    if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
+                        CPU.currentProcess.state = Process.State.TERMINATED;
+                        processTable.remove(CPU.currentProcess);
+                    } else if (ioDevice.isIdle()) {
+                        // move process from CPU to I/O
+                        ioDevice.currentProcess = CPU.currentProcess;
+
+                        ioDevice.currentProcess.state = Process.State.IO;
 
                         // an I/O completion event added to the event queue
-                        eventHeap.add(new Event(Event.Type.IO_DONE, time + p.ioBurstSizes[p.currentBurst], p));
+                        eventHeap.add(new Event(Event.Type.IO_DONE,
+                                time + ioDevice.currentProcess.ioBurstSizes[ioDevice.currentProcess.currentBurst]));
                     } else { // Otherwise it gets put into the IO queue with status waiting
-                        ioQueue.add(p);
+                        Process p = CPU.currentProcess;
+
                         p.state = Process.State.WAITING;
+                        ioQueue.add(p); // add to I/O queue
                     }
 
                     // free up the CPU
@@ -124,19 +153,17 @@ class SchedSim {
                         Process readyProcess = readyQueue.poll();
                         CPU.currentProcess = readyProcess;
                         // a new CPU Burst Completion event added to the event queue
-                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + readyProcess.cpuBurstSizes[readyProcess.currentBurst], readyProcess));
+                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + readyProcess.cpuBurstSizes[readyProcess.currentBurst]));
                     }
 
                     break;
                 case IO_DONE:
                     System.out.println("Processing IO_DONE");
-                    p = currentEvent.process;
-                    readyQueue.add(p);
 
-                    // free up the io device
-                    ioDevice.currentProcess = null;
+                    readyQueue.add(ioDevice.currentProcess);
+                    ioDevice.currentProcess = null; // free up CPU
 
-                    if (CPU.currentProcess == null) {
+                    if (CPU.isIdle()) {
                         CPU.currentProcess = readyQueue.poll();
                     }
 
@@ -145,30 +172,29 @@ class SchedSim {
                         Process ioProcess = ioQueue.poll();
                         ioDevice.currentProcess = ioProcess;
 
-                        eventHeap.add(new Event(Event.Type.IO_DONE, time + ioProcess.ioBurstSizes[ioProcess.currentBurst], ioProcess));
+                        eventHeap.add(new Event(Event.Type.IO_DONE, time + ioProcess.ioBurstSizes[ioProcess.currentBurst]));
                     }
 
                     break;
                 default:
-                    System.err.println("Event type unknown! Termintating immediately.");
+                    System.err.println("Event type unknown! Terminating immediately.");
                     System.exit(1);
             }
         }
-
-
-        // output statistics
-
+        return time;
     }
 
-    private static void populateProcessTable(){
+    private static void getNewProcesses(){
         for (int i = 0; i < maxProcesses; i++) {
-            processTable.add(getProcessFromInput());
+            newProcesses.add(getProcessFromInput());
         }
     }
 
     private static Process getProcessFromInput() {
 
-        double nextProcessTime = readByte() / 10.0;
+        double readIn = readByte() / 10.0; // for debugging purposes
+        nextProcessTime += readIn;
+        // System.out.println("READ: " + readIn + "; NPT: " + nextProcessTime); // debugging
         int numCPUbursts = readByte() % maxCPUbursts + 1;
 
         Process p = new Process(numCPUbursts);
@@ -177,13 +203,17 @@ class SchedSim {
             p.cpuBurstSizes[i] = readByte() / 25.6;
             //System.out.print(p.cpuBurstSizes[i] + " ");
         }
-        System.out.println();
+        //System.out.println();
+
         for (int i = 0; i < numCPUbursts - 1; i++) {
             p.ioBurstSizes[i] = readByte() / 25.6;
             //System.out.print(p.ioBurstSizes[i] + " ");
         }
 
-        //System.out.println(nextProcessTime + " " + numCPUbursts);
+        eventHeap.add(new Event(Event.Type.ARRIVAL, nextProcessTime));
+
+        p.state = Process.State.NEW;
+
         return p;
     }
 
@@ -234,7 +264,6 @@ class SchedSim {
     private static File checkInputAndGetFile(String[] args) throws FileNotFoundException {
         File f = new File(args[0]);
         if (!f.exists() || f.isDirectory()) {
-            System.err.println();
             throw new FileNotFoundException("ERROR: Could not find file named: \"" + args[0] + "\"");
         }
 
@@ -261,5 +290,11 @@ class SchedSim {
     private static void printUsageAndExit() {
         System.err.println("Usage: java SchedSim <filename> <maxProcesses> <maxCPUbursts> <algorithm>");
         System.exit(1);
+    }
+
+    private static void debugEventHeap() {
+        for (Event e : eventHeap) {
+            System.out.println("EVENT: " + e.type);
+        }
     }
 }
