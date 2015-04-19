@@ -101,11 +101,6 @@ class SchedSim {
 
             switch (currentEvent.type) {
                 case ARRIVAL:
-                    System.out.println("Processing ARRIVAL");
-                    if (newProcesses.isEmpty()) {
-                        //debugEventHeap();
-                        System.out.println("SHITS GON BREAK NUCKA");
-                    }
                     Process arrivalProcess = newProcesses.remove();
                     processTable.add(arrivalProcess);
 
@@ -125,8 +120,6 @@ class SchedSim {
 
                     break;
                 case CPU_DONE:
-                    System.out.println("Processing CPU_DONE");
-
                     if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
                         CPU.currentProcess.state = Process.State.TERMINATED;
                         processTable.remove(CPU.currentProcess);
@@ -158,8 +151,6 @@ class SchedSim {
 
                     break;
                 case IO_DONE:
-                    System.out.println("Processing IO_DONE");
-
                     readyQueue.add(ioDevice.currentProcess);
                     ioDevice.currentProcess = null; // free up CPU
 
