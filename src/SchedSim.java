@@ -20,6 +20,7 @@ class SchedSim {
     public static Queue<Process> readyQueue;
     public static InputStream inputStream; // stream used to read in process info
     public static Queue<Process> newProcesses;
+    public static LinkedList<Process> procsStats = new LinkedList<>(); // used for keeping statistics on all processes
 
     public static Device CPU;
     public static Device ioDevice;
@@ -108,6 +109,7 @@ class SchedSim {
                     if (CPU.isIdle()) {
                         // place the process on CPU and set its state to running
                         CPU.currentProcess = arrivalProcess;
+                        arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time of the process
                         arrivalProcess.state = Process.State.RUNNING;
 
                         // create a new CPU Burst Completion event and add to eventheap
@@ -115,6 +117,7 @@ class SchedSim {
                                 time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
                     } else { // CPU busy
                         arrivalProcess.state = Process.State.READY;
+                        arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
                         readyQueue.add(arrivalProcess);
                     }
 
@@ -122,11 +125,12 @@ class SchedSim {
                 case CPU_DONE:
                     if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
                         CPU.currentProcess.state = Process.State.TERMINATED;
+                        CPU.currentProcess.completionTime = time;
                         processTable.remove(CPU.currentProcess);
                     } else if (ioDevice.isIdle()) {
                         // move process from CPU to I/O
                         ioDevice.currentProcess = CPU.currentProcess;
-
+                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update wait time
                         ioDevice.currentProcess.state = Process.State.IO;
 
                         // an I/O completion event added to the event queue
@@ -136,6 +140,7 @@ class SchedSim {
                         Process p = CPU.currentProcess;
 
                         p.state = Process.State.WAITING;
+                        p.lastWait = time; // start waiting because we're not doing I/O work yet
                         ioQueue.add(p); // add to I/O queue
                     }
 
@@ -177,7 +182,9 @@ class SchedSim {
 
     private static void getNewProcesses(){
         for (int i = 0; i < maxProcesses; i++) {
-            newProcesses.add(getProcessFromInput());
+            Process theProcess = getProcessFromInput();
+            newProcesses.add(theProcess); // use for placing arriving processes into processTable
+            procsStats.add(theProcess); // keep reference to same exact process in order to use for bookkeeping later
         }
     }
 
