@@ -65,7 +65,7 @@ class SchedSim {
         Device CPU = new Device();
 
         // add initial event so we can get into the while loop below
-        eventHeap.add(new Event(Event.Type.ARRIVAL, 0));
+        eventHeap.add(new Event(Event.Type.ARRIVAL, 0, null));
 
         //---------------------------------------------------------------------//
         //-------------------------------DES LOOP!-----------------------------//
@@ -78,7 +78,9 @@ class SchedSim {
                 case ARRIVAL:
                     Process p = getProcessFromInput();
                     processTable.add(p);
+                    currentEvent.process = p;
 
+                    // no process on CPU means the CPU is idle
                     if (CPU.currentProcess == null) {
                         // place the process on CPU and set its state to running
                         CPU.currentProcess = p;
@@ -91,11 +93,40 @@ class SchedSim {
                         p.state = Process.State.READY;
                         readyQueue.add(p);
                     }
+
+                    // read in the time of the next process arrival, and add a new Arrival event to the event queue
+                    eventHeap.add(new Event(Event.Type.ARRIVAL, nextProcessTime, null));
+
                     break;
                 case CPU_DONE:
-                    Process p = currentEvent.process;
-                    
+                    p = currentEvent.process;
 
+                    if (p.currentBurst == p.cpuBurstSizes.length - 1) {
+                        p.state = Process.State.TERMINATED;
+                    } else if (ioDevice.currentProcess == null) {
+                        ioDevice.currentProcess = p;
+                        p.state = Process.State.IO;
+
+                        // an I/O completion event added to the event queue
+                        eventHeap.add(new Event(Event.Type.IO_DONE, time + p.ioBurstSizes[p.currentBurst], p));
+                    } else { // Otherwise it gets put into the IO queue with status waiting
+                        ioQueue.add(p);
+                        p.state = Process.State.WAITING;
+                    }
+
+                    // free up the CPU
+                    CPU.currentProcess = null;
+
+                    if (!readyQueue.isEmpty()) {
+                        Process readyProcess = readyQueue.poll();
+                        CPU.currentProcess = readyProcess;
+                        // a new CPU Burst Completion event added to the event queue
+                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + readyProcess.cpuBurstSizes[readyProcess.currentBurst], readyProcess));
+                    }
+
+                    break;
+                case IO_DONE:
+                    break;
             }
         }
 
@@ -117,12 +148,15 @@ class SchedSim {
 
         for (int i = 0; i < numCPUbursts; i++) {
             p.cpuBurstSizes[i] = readByte() / 25.6;
+            //System.out.print(p.cpuBurstSizes[i] + " ");
         }
+        System.out.println();
         for (int i = 0; i < numCPUbursts - 1; i++) {
             p.ioBurstSizes[i] = readByte() / 25.6;
+            //System.out.print(p.ioBurstSizes[i] + " ");
         }
 
-        System.out.println(nextProcessTime + " " + numCPUbursts);
+        //System.out.println(nextProcessTime + " " + numCPUbursts);
         return p;
     }
 
