@@ -21,10 +21,13 @@ class Process {
 	public double waitTime = 0; // we are defining this to be whenever the process is waiting; either waiting for CPU or I/O. Basically whenever the process is not doing any work.
 	public double lastWait = 0; // the time at which this process last started waiting
 	public double completionTime = 0; // the time that this process completes at
+	public double totalRunTime = 0;
 
 	public Process(int numCPUbursts) {
 		this.numCPUbursts = numCPUbursts;
 		cpuBurstSizes = new double[numCPUbursts];
 		ioBurstSizes = new double[numCPUbursts - 1];
 	}
+
+
 }

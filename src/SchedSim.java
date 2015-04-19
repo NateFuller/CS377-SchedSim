@@ -61,12 +61,14 @@ class SchedSim {
 
         // initialize data structures
         eventHeap = new PriorityQueue<>();
+        ioQueue = new LinkedList<>();
         processTable = new ArrayList<>();
         newProcesses = new LinkedList<>();
         getNewProcesses(); //populates newProcesses
 
         ioDevice = new Device();
         CPU = new Device();
+        double completionTime = 0;
 
         //---------------------------------------------------------------------//
         //-------------------------------DES LOOP!-----------------------------//
@@ -74,13 +76,23 @@ class SchedSim {
         switch(algorithm) {
             case FCFS:
                 readyQueue = new LinkedList<>(); // just using a linked list; no comparator needed
-                ioQueue = new LinkedList<>();
-                double completionTime = FCFS();
+                completionTime = FCFS();
                 System.out.println("FCFS finished with completion time: " + completionTime + " seconds.");
                 printStats();
                 break;
+
             case SJF:
+                readyQueue = new PriorityQueue<>(11, new Comparator<Process>() {
+                    public int compare(Process p1, Process p2){
+                        int retVal = (int)((p1.totalRunTime - p1.completedTime) - (p2.totalRunTime - p2.completedTime));
+                        return retVal;
+                    }
+                });
+                completionTime = SJF();
+                System.out.println("SJF finished with completion time: " + completionTime + " seconds.");
+                printStats();
                 break;
+
             case SRTF:
                 break;
             case RR:
@@ -194,6 +206,16 @@ class SchedSim {
             }
         }
         return time;
+    }
+
+    public static double SJF(){
+
+        while(!eventHeap.isEmpty()) {
+            Event currentEvent = eventHeap.poll();
+            time = currentEvent.time;
+
+        }
+        return 0;
     }
 
     private static void printStats() {
