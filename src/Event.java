@@ -1,5 +1,5 @@
 /* these will be used in the Event Heap and all queues */
-class Event {
+class Event implements Comparable<Event>{
 
 	public enum Type { // corresponds to "Events to be Processed" in assignment
 		ARRIVAL, CPU_DONE, IO_DONE 
@@ -14,5 +14,11 @@ class Event {
 		this.time = time;
 		this.process = process;
 	}
+
+
+	public int compareTo(Event anotherEvent) {
+		return Double.compare(this.time, anotherEvent.time);
+	}
+
 
 }

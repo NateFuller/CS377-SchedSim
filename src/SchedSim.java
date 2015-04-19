@@ -74,8 +74,9 @@ class SchedSim {
             Event currentEvent = eventHeap.poll();
             time = currentEvent.time;
 
-            switch(currentEvent.type) {
+            switch (currentEvent.type) {
                 case ARRIVAL:
+                    System.out.println("Processing ARRIVAL");
                     Process p = getProcessFromInput();
                     processTable.add(p);
                     currentEvent.process = p;
@@ -99,6 +100,7 @@ class SchedSim {
 
                     break;
                 case CPU_DONE:
+                    System.out.println("Processing CPU_DONE");
                     p = currentEvent.process;
 
                     if (p.currentBurst == p.cpuBurstSizes.length - 1) {
@@ -126,13 +128,31 @@ class SchedSim {
 
                     break;
                 case IO_DONE:
+                    System.out.println("Processing IO_DONE");
+                    p = currentEvent.process;
+                    readyQueue.add(p);
+
+                    // free up the io device
+                    ioDevice.currentProcess = null;
+
+                    if (CPU.currentProcess == null) {
+                        CPU.currentProcess = readyQueue.poll();
+                    }
+
+                    // if a process is waiting for IO
+                    if (!ioQueue.isEmpty()) {
+                        Process ioProcess = ioQueue.poll();
+                        ioDevice.currentProcess = ioProcess;
+
+                        eventHeap.add(new Event(Event.Type.IO_DONE, time + ioProcess.ioBurstSizes[ioProcess.currentBurst], ioProcess));
+                    }
+
                     break;
+                default:
+                    System.err.println("Event type unknown! Termintating immediately.");
+                    System.exit(1);
             }
         }
-
-        /* DES loop */
-        // see pseudocode in the assignment
-        // all of your input reading occurs when processing the Arrival event
 
 
         // output statistics
