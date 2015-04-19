@@ -12,7 +12,7 @@ class SchedSim {
     public static int maxCPUbursts; // cap on total CPU bursts per process
     public static double time = 0; // current time in simulation, starting at zero
 
-    public static double nextProcessTime; // time of the next process; used to schedule the next arrival event and should not be saved in the current process object
+    public static double nextProcessTime = 0; // time of the next process; used to schedule the next arrival event and should not be saved in the current process object
 
     public static Queue<Event> eventHeap;
     public static List<Process> processTable;
@@ -21,6 +21,8 @@ class SchedSim {
     public static InputStream inputStream; // stream used to read in process info
     public static Queue<Process> newProcesses;
     public static LinkedList<Process> procsStats = new LinkedList<>(); // used for keeping statistics on all processes
+
+    public static int currentProcess = 0; // used for creating process IDs
 
     public static Device CPU;
     public static Device ioDevice;
@@ -60,7 +62,6 @@ class SchedSim {
         // initialize data structures
         eventHeap = new PriorityQueue<>();
         processTable = new ArrayList<>();
-        ioQueue = new PriorityQueue<>();
         newProcesses = new LinkedList<>();
         getNewProcesses(); //populates newProcesses
 
@@ -73,8 +74,10 @@ class SchedSim {
         switch(algorithm) {
             case FCFS:
                 readyQueue = new LinkedList<>(); // just using a linked list; no comparator needed
+                ioQueue = new LinkedList<>();
                 double completionTime = FCFS();
                 System.out.println("FCFS finished with completion time: " + completionTime + " seconds.");
+                printStats();
                 break;
             case SJF:
                 break;
@@ -100,6 +103,7 @@ class SchedSim {
             Event currentEvent = eventHeap.poll();
             time = currentEvent.time;
 
+
             switch (currentEvent.type) {
                 case ARRIVAL:
                     Process arrivalProcess = newProcesses.remove();
@@ -110,27 +114,31 @@ class SchedSim {
                         // place the process on CPU and set its state to running
                         CPU.currentProcess = arrivalProcess;
                         arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time of the process
+                        // System.out.println("WAIT TIME = " + arrivalProcess.waitTime);
                         arrivalProcess.state = Process.State.RUNNING;
 
                         // create a new CPU Burst Completion event and add to eventheap
                         eventHeap.add(new Event(Event.Type.CPU_DONE,
                                 time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
+
                     } else { // CPU busy
                         arrivalProcess.state = Process.State.READY;
-                        arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
+                        //arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
                         readyQueue.add(arrivalProcess);
                     }
 
                     break;
                 case CPU_DONE:
+                    // System.out.println("CURRENT BURST: " + CPU.currentProcess.currentBurst);
                     if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
                         CPU.currentProcess.state = Process.State.TERMINATED;
                         CPU.currentProcess.completionTime = time;
-                        processTable.remove(CPU.currentProcess);
+                        // System.out.println("Removed Element: " + processTable.remove(CPU.currentProcess));
+
                     } else if (ioDevice.isIdle()) {
                         // move process from CPU to I/O
                         ioDevice.currentProcess = CPU.currentProcess;
-                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update wait time
+                        // ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update wait time
                         ioDevice.currentProcess.state = Process.State.IO;
 
                         // an I/O completion event added to the event queue
@@ -143,30 +151,38 @@ class SchedSim {
                         p.lastWait = time; // start waiting because we're not doing I/O work yet
                         ioQueue.add(p); // add to I/O queue
                     }
-
                     // free up the CPU
                     CPU.currentProcess = null;
 
                     if (!readyQueue.isEmpty()) {
                         Process readyProcess = readyQueue.poll();
                         CPU.currentProcess = readyProcess;
+                        readyProcess.waitTime += time - readyProcess.lastWait;
+                        // System.out.println("READY PROCESS WAIT TIME: " + readyProcess.waitTime + " " + time + " " + readyProcess.lastWait);
                         // a new CPU Burst Completion event added to the event queue
                         eventHeap.add(new Event(Event.Type.CPU_DONE, time + readyProcess.cpuBurstSizes[readyProcess.currentBurst]));
                     }
 
                     break;
                 case IO_DONE:
+                    ioDevice.currentProcess.currentBurst++;
                     readyQueue.add(ioDevice.currentProcess);
-                    ioDevice.currentProcess = null; // free up CPU
+                    ioDevice.currentProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
+                    ioDevice.currentProcess = null; // free up IO device
 
                     if (CPU.isIdle()) {
-                        CPU.currentProcess = readyQueue.poll();
+                        Process p = readyQueue.poll();
+                        CPU.currentProcess = p;
+                        p.waitTime += time - p.lastWait;
+
+                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[p.currentBurst]));
                     }
 
                     // if a process is waiting for IO
                     if (!ioQueue.isEmpty()) {
                         Process ioProcess = ioQueue.poll();
                         ioDevice.currentProcess = ioProcess;
+                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait;
 
                         eventHeap.add(new Event(Event.Type.IO_DONE, time + ioProcess.ioBurstSizes[ioProcess.currentBurst]));
                     }
@@ -180,6 +196,19 @@ class SchedSim {
         return time;
     }
 
+    private static void printStats() {
+        double avgCompletion = 0, avgWait = 0;
+        int size = procsStats.size();
+        for (int i = 0; i < size; i++) {
+            Process p = procsStats.remove();
+            System.out.println("PROCESS: " + p.id + " - Completion Time = " + p.completionTime + "; Wait Time = " + p.waitTime);
+            avgCompletion += p.completionTime;
+            avgWait += p.waitTime;
+        }
+        System.out.println("Average Completion Time: " + (double)(avgCompletion/size));
+        System.out.println("Average Wait Time: " + (double)(avgWait/size));
+    }
+
     private static void getNewProcesses(){
         for (int i = 0; i < maxProcesses; i++) {
             Process theProcess = getProcessFromInput();
@@ -191,11 +220,14 @@ class SchedSim {
     private static Process getProcessFromInput() {
 
         double readIn = readByte() / 10.0; // for debugging purposes
+
+        eventHeap.add(new Event(Event.Type.ARRIVAL, nextProcessTime));
         nextProcessTime += readIn;
         // System.out.println("READ: " + readIn + "; NPT: " + nextProcessTime); // debugging
         int numCPUbursts = readByte() % maxCPUbursts + 1;
 
         Process p = new Process(numCPUbursts);
+        p.id = ++currentProcess;
 
         for (int i = 0; i < numCPUbursts; i++) {
             p.cpuBurstSizes[i] = readByte() / 25.6;
@@ -208,7 +240,7 @@ class SchedSim {
             //System.out.print(p.ioBurstSizes[i] + " ");
         }
 
-        eventHeap.add(new Event(Event.Type.ARRIVAL, nextProcessTime));
+
 
         p.state = Process.State.NEW;
 
