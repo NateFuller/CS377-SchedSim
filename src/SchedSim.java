@@ -201,7 +201,7 @@ class SchedSim {
         int size = procsStats.size();
         for (int i = 0; i < size; i++) {
             Process p = procsStats.remove();
-            System.out.println("PROCESS: " + p.id + " - Completion Time = " + p.completionTime + "; Wait Time = " + p.waitTime);
+            // System.out.println("PROCESS: " + p.id + " - Completion Time = " + p.completionTime + "; Wait Time = " + p.waitTime);
             avgCompletion += p.completionTime;
             avgWait += p.waitTime;
         }
