@@ -83,6 +83,19 @@ class SchedSim {
 
             case SJF:
                 readyQueue = new PriorityQueue<>(11, new Comparator<Process>() {
+                    // p1 would be the process to get preempted by p2
+                    public int compare(Process p1, Process p2){
+                        int howToCompare = (int)(p1.totalRunTime - p2.totalRunTime);
+                        return howToCompare;
+                    }
+                });
+                completionTime = SJF();
+                System.out.println("SJF finished with completion time: " + completionTime + " seconds.");
+                printStats();
+                break;
+            case SRTF:
+                readyQueue = new PriorityQueue<>(11, new Comparator<Process>() {
+                    // p1 would be the process to get preempted by p2
                     public int compare(Process p1, Process p2){
                         int howToCompare = (int)((p1.totalRunTime - p1.completedTime) - (p2.totalRunTime - p2.completedTime));
                         return howToCompare;
@@ -91,9 +104,6 @@ class SchedSim {
                 completionTime = SJF();
                 System.out.println("SJF finished with completion time: " + completionTime + " seconds.");
                 printStats();
-                break;
-
-            case SRTF:
                 break;
             case RR:
                 break;
@@ -238,7 +248,7 @@ class SchedSim {
                             arrivalProcess.state = Process.State.RUNNING;
                             arrivalProcess.lastWorked = time; // mark that this new process is beginning to do work
                             arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time of the arrival process since it is now doing work
-                            
+
                             eventHeap.add(new Event(Event.Type.CPU_DONE,
                                     time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
                         } else {
@@ -263,7 +273,8 @@ class SchedSim {
      * @return whether or not p should preempt the CPU
      */
     private static boolean CPUisPreemptedBy(Process p) {
-        return CPU.currentProcess.timeTillCompletion() > p.timeTillCompletion();
+        int result = ((PriorityQueue)readyQueue).comparator().compare(CPU.currentProcess, p);
+        return result > 0; // greater than 0 = preempt, otherwise do not preempt
     }
 
     private static void printStats() {
