@@ -100,7 +100,7 @@ class SchedSim {
                 readyQueue = new PriorityQueue<>(11, new Comparator<Process>() {
                     // p1 would be the process to get preempted by p2
                     public int compare(Process p1, Process p2) {
-                        int howToCompare = (int) ((p1.totalRunTime - p1.completedTime) - (p2.totalRunTime - p2.completedTime));
+                        int howToCompare = (int) ((p1.timeTillCompletion()) - (p2.timeTillCompletion()));
                         return howToCompare;
                     }
                 });
