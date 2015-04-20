@@ -118,30 +118,29 @@ class SchedSim {
 
             switch (currentEvent.type) {
                 case ARRIVAL:
-                    Process arrivalProcess = newProcesses.remove();
-                    processTable.add(arrivalProcess);
+                    Process arrivalProcess = newProcesses.remove(); // get one of the new Processes
+                    processTable.add(arrivalProcess); // add it to the table of Processes
 
                     // no process on CPU means the CPU is idle
                     if (CPU.isIdle()) {
-                        // place the process on CPU and set its state to running
-                        CPU.currentProcess = arrivalProcess;
-                        arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time of the process
-                        // System.out.println("WAIT TIME = " + arrivalProcess.waitTime);
+                        CPU.currentProcess = arrivalProcess; // place the process on CPU and set its state to running
                         arrivalProcess.state = Process.State.RUNNING;
+                        arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time since the process is now doing work
+                        // System.out.println("WAIT TIME = " + arrivalProcess.waitTime); // debugging
 
-                        // create a new CPU Burst Completion event and add to eventheap
+                        // create a new CPU Burst Completion event and add to eventHeap
                         eventHeap.add(new Event(Event.Type.CPU_DONE,
                                 time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
 
                     } else { // CPU busy
-                        arrivalProcess.state = Process.State.READY;
-                        //arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
-                        readyQueue.add(arrivalProcess);
+                        arrivalProcess.state = Process.State.READY; // set state; waiting for CPU, on ready queue
+                        arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
+                        readyQueue.add(arrivalProcess); // add to readyQueue
                     }
 
                     break;
                 case CPU_DONE:
-                    // System.out.println("CURRENT BURST: " + CPU.currentProcess.currentBurst);
+                    // System.out.println("CURRENT BURST: " + CPU.currentProcess.currentBurst); // debugging
                     if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
                         CPU.currentProcess.state = Process.State.TERMINATED;
                         CPU.currentProcess.completionTime = time;
@@ -150,7 +149,8 @@ class SchedSim {
                     } else if (ioDevice.isIdle()) {
                         // move process from CPU to I/O
                         ioDevice.currentProcess = CPU.currentProcess;
-                        // ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update wait time
+                        // System.out.println("Process ID: " + ioDevice.currentProcess.id + "; Current Time: " + time + "; Waited for: " + (time - ioDevice.currentProcess.lastWait) + " seconds;");
+                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update the wait time since the process is now doing work
                         ioDevice.currentProcess.state = Process.State.IO;
 
                         // an I/O completion event added to the event queue
@@ -169,7 +169,7 @@ class SchedSim {
                     if (!readyQueue.isEmpty()) {
                         Process readyProcess = readyQueue.poll();
                         CPU.currentProcess = readyProcess;
-                        readyProcess.waitTime += time - readyProcess.lastWait;
+                        readyProcess.waitTime += time - readyProcess.lastWait; // update the wait time since the process is now doing work
                         // System.out.println("READY PROCESS WAIT TIME: " + readyProcess.waitTime + " " + time + " " + readyProcess.lastWait);
                         // a new CPU Burst Completion event added to the event queue
                         eventHeap.add(new Event(Event.Type.CPU_DONE, time + readyProcess.cpuBurstSizes[readyProcess.currentBurst]));
@@ -177,15 +177,16 @@ class SchedSim {
 
                     break;
                 case IO_DONE:
-                    ioDevice.currentProcess.currentBurst++;
+                    ioDevice.currentProcess.currentBurst++; // increment the current burst (here, I'm counting a "burst" to be when a process has completed a round of CPU AND I/O.)
                     readyQueue.add(ioDevice.currentProcess);
                     ioDevice.currentProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
                     ioDevice.currentProcess = null; // free up IO device
 
+                    // if the CPU is idle, put a process on it!
                     if (CPU.isIdle()) {
                         Process p = readyQueue.poll();
                         CPU.currentProcess = p;
-                        p.waitTime += time - p.lastWait;
+                        p.waitTime += time - p.lastWait; // update the wait time since the process is now doing work
 
                         eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[p.currentBurst]));
                     }
@@ -194,7 +195,7 @@ class SchedSim {
                     if (!ioQueue.isEmpty()) {
                         Process ioProcess = ioQueue.poll();
                         ioDevice.currentProcess = ioProcess;
-                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait;
+                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update the wait time since the process is now doing work
 
                         eventHeap.add(new Event(Event.Type.IO_DONE, time + ioProcess.ioBurstSizes[ioProcess.currentBurst]));
                     }
