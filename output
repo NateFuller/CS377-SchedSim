@@ -1,0 +1,45 @@
+LAB 3 SAMPLE OUTPUT
+=======================================
+FCFS INPUT: pwd 10 10 0
+
+FCFS OUTPUT:
+Executing the "FCFS" algorithm with at most 10 processes and at most 10 CPU bursts per process.
+FCFS finished with completion time: 40.734375 seconds.
+Average Completion Time: 24.99078125
+Average Wait Time: 8.66921875
+=======================================
+// NOTE: THIS TENDS TO FAIL IN MORE CASES THAN IT SUCCEEDS IN.
+// 5 process, 4 max cpu bursts is one that succeeds
+
+SJF INPUT: pwd 5 4 1
+
+SJF OUTPUT:
+Executing the "SJF" algorithm with at most 5 processes and at most 4 CPU bursts per process.
+SJF finished with completion time: 15.221874999999999 seconds.
+Average Completion Time: 11.860624999999999
+Average Wait Time: 8.233749999999999
+=======================================
+SRTF INPUT: pwd 5 4 2
+
+SRTF OUTPUT:
+Executing the "SRTF" algorithm with at most 5 processes and at most 4 CPU bursts per process.
+SRTF finished with completion time: 15.221874999999999 seconds.
+Average Completion Time: 11.860624999999999
+Average Wait Time: 8.233749999999999
+=======================================
+// last number == time quantum
+RR INPUT: pwd 10 10 3 5
+
+RR OUTPUT:
+Executing the "RR" algorithm with at most 10 processes and at most 10 CPU bursts per process.
+RR Quantum: 5
+RR finished with completion time: 40.734375 seconds.
+Average Completion Time: 24.99078125
+Average Wait Time: 8.66921875
+=======================================
+ERR INPUT: pwd -1 5 2
+
+ERR OUTPUT:
+ERROR: Please enter a non-negative, nonzero integer value for maxProcesses.
+Usage: java SchedSim <filename> <maxProcesses> <maxCPUbursts> <algorithm> <OPTIONAL: RR Quantum>
+=======================================
