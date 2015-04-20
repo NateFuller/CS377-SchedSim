@@ -84,8 +84,8 @@ class SchedSim {
             case SJF:
                 readyQueue = new PriorityQueue<>(11, new Comparator<Process>() {
                     public int compare(Process p1, Process p2){
-                        int retVal = (int)((p1.totalRunTime - p1.completedTime) - (p2.totalRunTime - p2.completedTime));
-                        return retVal;
+                        int howToCompare = (int)((p1.totalRunTime - p1.completedTime) - (p2.totalRunTime - p2.completedTime));
+                        return howToCompare;
                     }
                 });
                 completionTime = SJF();
@@ -101,12 +101,6 @@ class SchedSim {
                 System.err.println("ERR: Something went wrong...");
                 System.exit(1);
         }
-
-
-
-
-        // output statistics
-
     }
 
     public static double FCFS() {
@@ -215,8 +209,61 @@ class SchedSim {
             Event currentEvent = eventHeap.poll();
             time = currentEvent.time;
 
+            switch(currentEvent.type) {
+                case ARRIVAL:
+                    Process arrivalProcess = newProcesses.remove(); // get one of the new Processes
+                    processTable.add(arrivalProcess); // add it to the table of Processes
+
+                    // no process on CPU means the CPU is idle
+                    if (CPU.isIdle()) {
+                        CPU.currentProcess = arrivalProcess; // place the process on CPU and set its state to running
+                        arrivalProcess.state = Process.State.RUNNING;
+                        arrivalProcess.lastWorked = time; // mark that this process is beginning to do work
+                        arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time since the process is now doing work
+                        // System.out.println("WAIT TIME = " + arrivalProcess.waitTime); // debugging
+
+                        // create a new CPU Burst Completion event and add to eventHeap
+                        eventHeap.add(new Event(Event.Type.CPU_DONE,
+                                time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
+
+                    } else { // CPU busy
+                        if (CPUisPreemptedBy(arrivalProcess)) {
+                            CPU.currentProcess.lastWait = time; // the CPU process is preempted and begins to wait
+                            CPU.currentProcess.completedTime = time - CPU.currentProcess.lastWorked; // update how much this work this process has completed
+                            CPU.currentProcess.state = Process.State.READY;
+
+                            readyQueue.add(CPU.currentProcess); // add the preempted process to the ready queue
+
+                            CPU.currentProcess = arrivalProcess; // give the CPU to the arrival process that preempted
+                            arrivalProcess.state = Process.State.RUNNING;
+                            arrivalProcess.lastWorked = time; // mark that this new process is beginning to do work
+                            arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time of the arrival process since it is now doing work
+                            
+                            eventHeap.add(new Event(Event.Type.CPU_DONE,
+                                    time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
+                        } else {
+                            arrivalProcess.state = Process.State.READY; // set state; waiting for CPU, on ready queue
+                            arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
+                            readyQueue.add(arrivalProcess); // add to readyQueue
+                        }
+                    }
+                    break;
+                case CPU_DONE:
+                    break;
+                case IO_DONE:
+                    break;
+            }
         }
-        return 0;
+        return time;
+    }
+
+    /**
+     *
+     * @param p the process that may possibly preempt that which is currently running on the CPU
+     * @return whether or not p should preempt the CPU
+     */
+    private static boolean CPUisPreemptedBy(Process p) {
+        return CPU.currentProcess.timeTillCompletion() > p.timeTillCompletion();
     }
 
     private static void printStats() {
@@ -255,14 +302,16 @@ class SchedSim {
         for (int i = 0; i < numCPUbursts; i++) {
             p.cpuBurstSizes[i] = readByte() / 25.6;
             //System.out.print(p.cpuBurstSizes[i] + " ");
+            p.totalRunTime += p.cpuBurstSizes[i];
         }
         //System.out.println();
 
         for (int i = 0; i < numCPUbursts - 1; i++) {
             p.ioBurstSizes[i] = readByte() / 25.6;
             //System.out.print(p.ioBurstSizes[i] + " ");
+            p.totalRunTime += p.ioBurstSizes[i];
         }
-
+        System.out.println("Process ID: " + p.id + "; Total Run Time: " + p.totalRunTime);
 
 
         p.state = Process.State.NEW;
