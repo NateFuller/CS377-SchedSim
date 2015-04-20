@@ -11,6 +11,7 @@ class SchedSim {
     public static int maxProcesses; // cap on total processes for simulation
     public static int maxCPUbursts; // cap on total CPU bursts per process
     public static double time = 0; // current time in simulation, starting at zero
+    public static int quantum; // time quantum used for RR scheduling
 
     public static double nextProcessTime = 0; // time of the next process; used to schedule the next arrival event and should not be saved in the current process object
 
@@ -473,8 +474,12 @@ class SchedSim {
         }
 
         try {
-            maxProcesses = Integer.parseInt(args[1].toLowerCase());
-            maxCPUbursts = Integer.parseInt(args[2].toLowerCase());
+            maxProcesses = Integer.parseInt(args[1]);
+            maxCPUbursts = Integer.parseInt(args[2]);
+            // check for RR quantum
+            if (args.length == 5) {
+                quantum = Integer.parseInt(args[4]);
+            }
         } catch (NumberFormatException e) {
             System.err.println("ERROR: Please enter non-negative, nonzero integer values for maxProcesses and maxCPUbursts.");
             printUsageAndExit();
@@ -489,11 +494,17 @@ class SchedSim {
             System.err.println("ERROR: Please enter a non-negative, nonzero value integer for maxCPUbursts.");
             printUsageAndExit();
         }
+
+        if (args.length == 5 && quantum <= 0) {
+            System.err.println("ERROR: Please enter a non-negative, nonzero value integer for timeQuantum");
+            printUsageAndExit();
+        }
+
         return f;
     }
 
     private static void printUsageAndExit() {
-        System.err.println("Usage: java SchedSim <filename> <maxProcesses> <maxCPUbursts> <algorithm>");
+        System.err.println("Usage: java SchedSim <filename> <maxProcesses> <maxCPUbursts> <algorithm> <OPTIONAL: RR Quantum>");
         System.exit(1);
     }
 
