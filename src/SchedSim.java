@@ -53,6 +53,8 @@ class SchedSim {
         // give some feedback to the user
         System.out.println("Executing the \"" + algorithm.name() + "\" algorithm with at most " + maxProcesses
                 + " processes and at most " + maxCPUbursts + " CPU bursts per process.");
+        if (algorithm == Algorithm.RR)
+            System.out.println("RR Quantum: " + quantum);
 
         //---------------------------------------------------------------------//
         //---------------------------------SETUP-------------------------------//
@@ -74,7 +76,7 @@ class SchedSim {
         //---------------------------------------------------------------------//
         //-------------------------------DES LOOP!-----------------------------//
         //---------------------------------------------------------------------//
-        switch(algorithm) {
+        switch (algorithm) {
             case FCFS:
                 readyQueue = new LinkedList<>(); // just using a linked list; no comparator needed
                 completionTime = FCFS();
@@ -85,28 +87,32 @@ class SchedSim {
             case SJF:
                 readyQueue = new PriorityQueue<>(11, new Comparator<Process>() {
                     // p1 would be the process to get preempted by p2
-                    public int compare(Process p1, Process p2){
-                        int howToCompare = (int)(p1.totalRunTime - p2.totalRunTime);
+                    public int compare(Process p1, Process p2) {
+                        int howToCompare = (int) (p1.totalRunTime - p2.totalRunTime);
                         return howToCompare;
                     }
                 });
-                completionTime = SJF();
+                completionTime = SJF_SRTF();
                 System.out.println("SJF finished with completion time: " + completionTime + " seconds.");
                 printStats();
                 break;
             case SRTF:
                 readyQueue = new PriorityQueue<>(11, new Comparator<Process>() {
                     // p1 would be the process to get preempted by p2
-                    public int compare(Process p1, Process p2){
-                        int howToCompare = (int)((p1.totalRunTime - p1.completedTime) - (p2.totalRunTime - p2.completedTime));
+                    public int compare(Process p1, Process p2) {
+                        int howToCompare = (int) ((p1.totalRunTime - p1.completedTime) - (p2.totalRunTime - p2.completedTime));
                         return howToCompare;
                     }
                 });
-                completionTime = SJF();
+                completionTime = SJF_SRTF();
                 System.out.println("SRTF finished with completion time: " + completionTime + " seconds.");
                 printStats();
                 break;
             case RR:
+                readyQueue = new LinkedList<>();
+                completionTime = RR();
+                System.out.println("RR finished with completion time: " + completionTime + " seconds.");
+                printStats();
                 break;
             default:
                 System.err.println("ERR: Something went wrong...");
@@ -116,7 +122,7 @@ class SchedSim {
 
     public static double FCFS() {
 
-        while(!eventHeap.isEmpty()) {
+        while (!eventHeap.isEmpty()) {
             Event currentEvent = eventHeap.poll();
             time = currentEvent.time;
 
@@ -124,7 +130,6 @@ class SchedSim {
             switch (currentEvent.type) {
                 case ARRIVAL:
                     Process arrivalProcess = newProcesses.remove(); // get one of the new Processes
-                    processTable.add(arrivalProcess); // add it to the table of Processes
 
                     // no process on CPU means the CPU is idle
                     if (CPU.isIdle()) {
@@ -136,7 +141,6 @@ class SchedSim {
                         // create a new CPU Burst Completion event and add to eventHeap
                         eventHeap.add(new Event(Event.Type.CPU_DONE,
                                 time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
-
                     } else { // CPU busy
                         arrivalProcess.state = Process.State.READY; // set state; waiting for CPU, on ready queue
                         arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
@@ -149,7 +153,6 @@ class SchedSim {
                     if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
                         CPU.currentProcess.state = Process.State.TERMINATED;
                         CPU.currentProcess.completionTime = time;
-                        processTable.remove(CPU.currentProcess);
 
                     } else if (ioDevice.isIdle()) {
                         // move process from CPU to I/O
@@ -216,13 +219,13 @@ class SchedSim {
         return time;
     }
 
-    public static double SJF(){
+    public static double SJF_SRTF() {
 
-        while(!eventHeap.isEmpty()) {
+        while (!eventHeap.isEmpty()) {
             Event currentEvent = eventHeap.poll();
             time = currentEvent.time;
 
-            switch(currentEvent.type) {
+            switch (currentEvent.type) {
                 case ARRIVAL:
                     Process arrivalProcess = newProcesses.remove(); // get one of the new Processes
                     processTable.add(arrivalProcess); // add it to the table of Processes
@@ -238,7 +241,6 @@ class SchedSim {
                         // create a new CPU Burst Completion event and add to eventHeap
                         eventHeap.add(new Event(Event.Type.CPU_DONE,
                                 time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
-
                     } else { // CPU busy
                         if (CPUisPreemptedBy(arrivalProcess)) {
                             Process preemptedProcess = CPU.currentProcess;
@@ -313,7 +315,7 @@ class SchedSim {
                     ioDevice.currentProcess = null; // free up IO device
 
                     // if the CPU is idle, put a process on it!
-                    if (CPU.isIdle()) {
+                    if (CPU.isIdle() && !readyQueue.isEmpty()) {
                         Process p = readyQueue.poll(); // this will get the highest priority Process to put on CPU
                         CPU.currentProcess = p;
                         p.waitTime += time - p.lastWait; // update the wait time since the process is now doing work
@@ -360,13 +362,112 @@ class SchedSim {
         return time;
     }
 
+    private static double RR() {
+        while (!eventHeap.isEmpty()) {
+            Event currentEvent = eventHeap.poll();
+            time = currentEvent.time;
+
+            switch (currentEvent.type) {
+                case ARRIVAL:
+                    Process arrivalProcess = newProcesses.remove(); // get one of the new Processes
+
+                    // no process on CPU means the CPU is idle
+                    if (CPU.isIdle()) {
+                        CPU.currentProcess = arrivalProcess; // place the process on CPU and set its state to running
+                        arrivalProcess.state = Process.State.RUNNING;
+                        arrivalProcess.waitTime += time - arrivalProcess.lastWait; // update the wait time since the process is now doing work
+
+                        // if currentBurst length is greater than quantum, just add event for size of a quantum. Otherwise, use the remaining size of the current burst
+                        if (arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst] > quantum) {
+                            eventHeap.add(new Event(Event.Type.CPU_DONE,
+                                    time + quantum));
+                        } else {
+
+                            eventHeap.add(new Event(Event.Type.CPU_DONE, time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
+                        }
+                    } else { // CPU busy
+                        arrivalProcess.state = Process.State.READY; // set state; waiting for CPU, on ready queue
+                        arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
+                        readyQueue.add(arrivalProcess); // add to readyQueue
+                    }
+                    break;
+                case CPU_DONE:
+                    Process p = CPU.currentProcess;
+                    if (p.cpuBurstSizes[p.currentBurst] > quantum) { // only a quantum has completed
+                        //time += quantum;
+                        p.cpuBurstSizes[p.currentBurst] -= quantum; // update the size of the burst to reflect that the size of a quantum has just been processed
+                        p.state = Process.State.READY; // set state to READY
+                        p.lastWait = time; // mark that the process is beginning to wait
+                        readyQueue.add(p); // place back into the ready queue
+                    } else { // the burst finished
+                        if (p.currentBurst == p.cpuBurstSizes.length - 1) { // is this the last cpu burst?
+                            p.state = Process.State.TERMINATED;
+                            p.completionTime = time;
+                        } else if (ioDevice.isIdle()) {
+                            // move process from CPU to I/O
+                            ioDevice.currentProcess = p;
+                            // System.out.println("Process ID: " + ioDevice.currentProcess.id + "; Current Time: " + time + "; Waited for: " + (time - ioDevice.currentProcess.lastWait) + " seconds;");
+                            p.waitTime += time - p.lastWait; // update the wait time since the process is now doing work
+                            p.state = Process.State.IO;
+
+                            // an I/O completion event added to the event queue
+                            eventHeap.add(new Event(Event.Type.IO_DONE,
+                                    time + p.ioBurstSizes[p.currentBurst]));
+                        } else { // Otherwise it gets put into the IO queue with status waiting
+                            p.state = Process.State.WAITING;
+                            p.lastWait = time; // start waiting because we're not doing I/O work yet
+                            ioQueue.add(p); // add to I/O queue
+                        }
+                    }
+                    CPU.currentProcess = null; // free up the CPU (the code section after this switch/case will handle requeuing)
+                    break;
+                case IO_DONE:
+                    ioDevice.currentProcess.currentBurst++; // increment the current burst (here, I'm counting a "burst" to be when a process has completed a round of CPU AND I/O.)
+                    ioDevice.currentProcess.state = Process.State.READY; // the process is now waiting for CPU, so it is READY
+                    readyQueue.add(ioDevice.currentProcess);
+                    ioDevice.currentProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
+                    ioDevice.currentProcess = null; // free up IO device
+
+                    break;
+                default:
+                    System.err.println("Event type unknown! Terminating immediately.");
+                    System.exit(1);
+            }
+
+            // this chunk of code was being shared so we took it out
+            // if the CPU is idle, put a process on it!
+            if (CPU.isIdle() && !readyQueue.isEmpty()) {
+                Process p = readyQueue.poll();
+                CPU.currentProcess = p;
+                p.waitTime += time - p.lastWait; // update the wait time since the process is now doing work
+
+                // if currentBurst length is greater than quantum, just add event for size of a quantum. Otherwise, use the remaining size of the current burst
+                if (p.cpuBurstSizes[p.currentBurst] > quantum) {
+                    eventHeap.add(new Event(Event.Type.CPU_DONE,
+                            time + quantum));
+                } else {
+                    eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[p.currentBurst]));
+                }
+            }
+
+            // if a process is waiting for IO
+            if (!ioQueue.isEmpty()) {
+                Process ioProcess = ioQueue.poll();
+                ioDevice.currentProcess = ioProcess;
+                ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update the wait time since the process is now doing work
+
+                eventHeap.add(new Event(Event.Type.IO_DONE, time + ioProcess.ioBurstSizes[ioProcess.currentBurst]));
+            }
+        }
+        return time;
+    }
+
     /**
-     *
      * @param p the process that may possibly preempt that which is currently running on the CPU
      * @return whether or not p should preempt the CPU
      */
     private static boolean CPUisPreemptedBy(Process p) {
-        int result = ((PriorityQueue)readyQueue).comparator().compare(CPU.currentProcess, p);
+        int result = ((PriorityQueue) readyQueue).comparator().compare(CPU.currentProcess, p);
         return result > 0; // greater than 0 = preempt, otherwise do not preempt
     }
 
@@ -375,15 +476,14 @@ class SchedSim {
         int size = procsStats.size();
         for (int i = 0; i < size; i++) {
             Process p = procsStats.remove();
-            // System.out.println("PROCESS: " + p.id + " - Completion Time = " + p.completionTime + "; Wait Time = " + p.waitTime);
             avgCompletion += p.completionTime;
             avgWait += p.waitTime;
         }
-        System.out.println("Average Completion Time: " + (double)(avgCompletion/size));
-        System.out.println("Average Wait Time: " + (double)(avgWait/size));
+        System.out.println("Average Completion Time: " + (double) (avgCompletion / size));
+        System.out.println("Average Wait Time: " + (double) (avgWait / size));
     }
 
-    private static void getNewProcesses(){
+    private static void getNewProcesses() {
         for (int i = 0; i < maxProcesses; i++) {
             Process theProcess = getProcessFromInput();
             newProcesses.add(theProcess); // use for placing arriving processes into processTable
@@ -427,7 +527,7 @@ class SchedSim {
         int retVal = -1;
         try {
             retVal = inputStream.read() & 0xff;
-        } catch(IOException e) { // probably should terminate if something goes wrong with I/O
+        } catch (IOException e) { // probably should terminate if something goes wrong with I/O
             System.err.print(e.getLocalizedMessage());
             System.exit(1);
         }
@@ -435,7 +535,6 @@ class SchedSim {
     }
 
     /**
-     *
      * @param arg the argument to parse
      * @return Algorithm that the arg matches or exit if invalid
      */
@@ -462,7 +561,6 @@ class SchedSim {
     }
 
     /**
-     *
      * @param args command line arguments
      * @return File the file to be read from if all the input is sufficient and valid
      * @throws FileNotFoundException if the file does not exist or is a directory
