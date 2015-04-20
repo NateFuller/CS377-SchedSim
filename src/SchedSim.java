@@ -102,7 +102,7 @@ class SchedSim {
                     }
                 });
                 completionTime = SJF();
-                System.out.println("SJF finished with completion time: " + completionTime + " seconds.");
+                System.out.println("SRTF finished with completion time: " + completionTime + " seconds.");
                 printStats();
                 break;
             case RR:
@@ -148,7 +148,7 @@ class SchedSim {
                     if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
                         CPU.currentProcess.state = Process.State.TERMINATED;
                         CPU.currentProcess.completionTime = time;
-                        // System.out.println("Removed Element: " + processTable.remove(CPU.currentProcess));
+                        processTable.remove(CPU.currentProcess);
 
                     } else if (ioDevice.isIdle()) {
                         // move process from CPU to I/O
@@ -173,6 +173,7 @@ class SchedSim {
                     if (!readyQueue.isEmpty()) {
                         Process readyProcess = readyQueue.poll();
                         CPU.currentProcess = readyProcess;
+                        readyProcess.state = Process.State.RUNNING;
                         readyProcess.waitTime += time - readyProcess.lastWait; // update the wait time since the process is now doing work
                         // System.out.println("READY PROCESS WAIT TIME: " + readyProcess.waitTime + " " + time + " " + readyProcess.lastWait);
                         // a new CPU Burst Completion event added to the event queue
@@ -182,6 +183,7 @@ class SchedSim {
                     break;
                 case IO_DONE:
                     ioDevice.currentProcess.currentBurst++; // increment the current burst (here, I'm counting a "burst" to be when a process has completed a round of CPU AND I/O.)
+                    ioDevice.currentProcess.state = Process.State.READY; // the process is now waiting for CPU, so it is READY
                     readyQueue.add(ioDevice.currentProcess);
                     ioDevice.currentProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
                     ioDevice.currentProcess = null; // free up IO device
@@ -238,11 +240,13 @@ class SchedSim {
 
                     } else { // CPU busy
                         if (CPUisPreemptedBy(arrivalProcess)) {
-                            CPU.currentProcess.lastWait = time; // the CPU process is preempted and begins to wait
-                            CPU.currentProcess.completedTime = time - CPU.currentProcess.lastWorked; // update how much this work this process has completed
-                            CPU.currentProcess.state = Process.State.READY;
+                            Process preemptedProcess = CPU.currentProcess;
+                            preemptedProcess.lastWait = time; // the CPU process is preempted and begins to wait
+                            preemptedProcess.completedTime += time - preemptedProcess.lastWorked; // update how much this work this process has completed
+                            preemptedProcess.cpuBurstSizes[preemptedProcess.currentBurst] -= (time - preemptedProcess.lastWorked); // update the currentBurst length
+                            preemptedProcess.state = Process.State.READY;
 
-                            readyQueue.add(CPU.currentProcess); // add the preempted process to the ready queue
+                            readyQueue.add(preemptedProcess); // add the preempted process to the ready queue
 
                             CPU.currentProcess = arrivalProcess; // give the CPU to the arrival process that preempted
                             arrivalProcess.state = Process.State.RUNNING;
@@ -253,15 +257,103 @@ class SchedSim {
                                     time + arrivalProcess.cpuBurstSizes[arrivalProcess.currentBurst]));
                         } else {
                             arrivalProcess.state = Process.State.READY; // set state; waiting for CPU, on ready queue
+                            arrivalProcess.completedTime += time - arrivalProcess.lastWorked; //    update amount of work completed before waiting (just to be safe)
                             arrivalProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
                             readyQueue.add(arrivalProcess); // add to readyQueue
                         }
                     }
                     break;
                 case CPU_DONE:
+                    if (CPU.currentProcess.currentBurst == CPU.currentProcess.cpuBurstSizes.length - 1) {
+                        Process termProcess = CPU.currentProcess;
+                        termProcess.state = Process.State.TERMINATED;
+                        termProcess.completionTime = time;
+                        termProcess.completedTime += time - termProcess.lastWorked;
+                        processTable.remove(CPU.currentProcess);
+                    } else if (ioDevice.isIdle()) {
+                        // move process from CPU to I/O
+                        ioDevice.currentProcess = CPU.currentProcess;
+                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update the wait time since the process is now doing work
+                        ioDevice.currentProcess.lastWorked = time; // mark that the process is beginning to do more work (this time, on IO instead of CPU)
+                        ioDevice.currentProcess.state = Process.State.IO;
+
+                        // an I/O completion event added to the event queue
+                        eventHeap.add(new Event(Event.Type.IO_DONE,
+                                time + ioDevice.currentProcess.ioBurstSizes[ioDevice.currentProcess.currentBurst]));
+                    } else { // Otherwise it gets put into the IO queue with status waiting
+                        Process p = CPU.currentProcess;
+
+                        p.state = Process.State.WAITING;
+                        p.lastWait = time; // start waiting because we're not doing I/O work yet
+                        p.completedTime += time - p.lastWorked;
+                        ioQueue.add(p); // add to I/O queue
+                    }
+                    // free up the CPU
+                    CPU.currentProcess = null;
+
+                    if (!readyQueue.isEmpty()) {
+                        Process readyProcess = readyQueue.poll();
+                        CPU.currentProcess = readyProcess;
+                        readyProcess.state = Process.State.RUNNING;
+                        readyProcess.waitTime += time - readyProcess.lastWait; // update the wait time since the process is now doing work
+                        readyProcess.lastWorked = time; // mark that this process is beginning to do work on the CPU
+                        // System.out.println("READY PROCESS WAIT TIME: " + readyProcess.waitTime + " " + time + " " + readyProcess.lastWait);
+                        // a new CPU Burst Completion event added to the event queue
+                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + readyProcess.cpuBurstSizes[readyProcess.currentBurst]));
+                    }
                     break;
                 case IO_DONE:
+                    Process doneProcess = ioDevice.currentProcess;
+                    doneProcess.currentBurst++; // increment the current burst (here, I'm counting a "burst" to be when a process has completed a round of CPU AND I/O.)
+                    doneProcess.state = Process.State.READY; // the process is now waiting for CPU, so it is READY
+                    readyQueue.add(doneProcess);
+                    doneProcess.completedTime = time - doneProcess.lastWorked; // update the amount of time this process has worked
+                    doneProcess.lastWait = time; // start waiting because we're not doing any CPU work yet
+                    ioDevice.currentProcess = null; // free up IO device
+
+                    // if the CPU is idle, put a process on it!
+                    if (CPU.isIdle()) {
+                        Process p = readyQueue.poll(); // this will get the highest priority Process to put on CPU
+                        CPU.currentProcess = p;
+                        p.waitTime += time - p.lastWait; // update the wait time since the process is now doing work
+                        p.lastWorked = time; // mark that this process is beginning to do work on the CPU
+
+                        eventHeap.add(new Event(Event.Type.CPU_DONE, time + p.cpuBurstSizes[p.currentBurst]));
+                    } else {
+                        Process p = readyQueue.poll(); // the process we dequeue should have the highest priority
+                        if (CPUisPreemptedBy(p)) {
+                            Process preemptedProcess = CPU.currentProcess;
+                            preemptedProcess.lastWait = time; // the CPU process is preempted and begins to wait
+                            preemptedProcess.completedTime += time - preemptedProcess.lastWorked; // update how much this work this process has completed
+                            preemptedProcess.cpuBurstSizes[preemptedProcess.currentBurst] -= (time - preemptedProcess.lastWorked); // update the currentBurst length
+                            preemptedProcess.state = Process.State.READY;
+
+                            readyQueue.add(preemptedProcess); // add the preempted process to the ready queue
+
+                            CPU.currentProcess = p; // give the CPU to the process that preempted
+                            p.state = Process.State.RUNNING;
+                            p.lastWorked = time; // mark that this process is beginning to do work
+                            p.waitTime += time - p.lastWait; // update the wait time of the process since it is now doing work
+
+                            eventHeap.add(new Event(Event.Type.CPU_DONE,
+                                    time + p.cpuBurstSizes[p.currentBurst]));
+                        } else {
+                            readyQueue.add(p); // if it has a lower priority than that which is on the CPU currently, just add back into the PQ
+                        }
+                    }
+
+                    // if a process is waiting for IO
+                    if (!ioQueue.isEmpty()) {
+                        Process ioProcess = ioQueue.poll();
+                        ioDevice.currentProcess = ioProcess;
+                        ioDevice.currentProcess.waitTime += time - ioDevice.currentProcess.lastWait; // update the wait time since the process is now doing work
+
+                        eventHeap.add(new Event(Event.Type.IO_DONE, time + ioProcess.ioBurstSizes[ioProcess.currentBurst]));
+                    }
                     break;
+                default:
+                    System.err.println("Event type unknown! Terminating immediately.");
+                    System.exit(1);
             }
         }
         return time;
@@ -322,7 +414,7 @@ class SchedSim {
             //System.out.print(p.ioBurstSizes[i] + " ");
             p.totalRunTime += p.ioBurstSizes[i];
         }
-        System.out.println("Process ID: " + p.id + "; Total Run Time: " + p.totalRunTime);
+        // System.out.println("Process ID: " + p.id + "; Total Run Time: " + p.totalRunTime);
 
 
         p.state = Process.State.NEW;
